@@ -1,3 +1,6 @@
+
+
+
 import { Input } from '@/components/ui/input';
 import { AI_PROMPT, SelectBudgetOptions, SelectTravelList } from '@/constants/options';
 import React, { useEffect, useState } from 'react'
@@ -19,8 +22,10 @@ import { app, db } from '@/service/firebaseConfig';
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { useNavigate } from 'react-router-dom';
 
+
 function CreateTrip() {
-  const [place, setPlace] = useState();
+  const [sourcePlace, setSourcePlace] = useState();
+  const [destinationPlace, setDestinationPlace] = useState();
   const [formData, setFormData] = useState([]);
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -30,7 +35,6 @@ function CreateTrip() {
   const navigate = useNavigate();
 
   const handleInputChange = (name, value) => {
-
     setFormData({
       ...formData,
       [name]: value
@@ -42,14 +46,13 @@ function CreateTrip() {
   }, [formData])
 
   const onGenerateTrip = async () => {
-
     const user = localStorage.getItem('user');
     if (!user) {
       setOpenDialog(true)
       return;
     }
 
-    if (formData?.noOfDAys > 5 && !formData?.location || !formData?.budget || !formData.traveler) {
+    if (!formData?.source || !formData?.location || !formData?.budget || !formData.traveler || !formData?.noOfDays) {
       toast('Please fill all the details')
       return;
     }
@@ -64,12 +67,13 @@ function CreateTrip() {
       .replace('{budget}', formData?.budget)
       .replace('{totalDays}', formData?.noOfDays)
 
-    // console.log(FINAL_PROMPT)
+    console.log(FINAL_PROMPT)
 
     const result = await chatSession.sendMessage(FINAL_PROMPT);
     console.log(result?.response?.text());
     setLoading(false)
     SaveAiTrip(result?.response?.text())
+   
   }
 
   const SaveAiTrip = async (TripData) => {
@@ -116,12 +120,23 @@ function CreateTrip() {
 
       <div className='mt-20 flex flex-col gap-10'>
         <div>
-          <h2 className='text-xl my-3 font-medium'>What is destination of choice?</h2>
+          <h2 className='text-xl my-3 font-medium'>Where are you starting your journey from?</h2>
           <GooglePlacesAutocomplete
             apiKey={import.meta.env.VITE_GOOGLE_PLACE_API_KEY}
             selectProps={{
-              place,
-              onChange: (v) => { setPlace(v); handleInputChange('location', v) }
+              sourcePlace,
+              onChange: (v) => { setSourcePlace(v); handleInputChange('source', v) }
+            }}
+          />
+        </div>
+
+        <div>
+          <h2 className='text-xl my-3 font-medium'>What is your destination of choice?</h2>
+          <GooglePlacesAutocomplete
+            apiKey={import.meta.env.VITE_GOOGLE_PLACE_API_KEY}
+            selectProps={{
+              destinationPlace,
+              onChange: (v) => { setDestinationPlace(v); handleInputChange('location', v) }
             }}
           />
         </div>

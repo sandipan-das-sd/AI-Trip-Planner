@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { FaPlane, FaTrain, FaBus } from "react-icons/fa";
+import { FaPlane, FaTrain, FaBus, FaInfoCircle, FaExchangeAlt } from "react-icons/fa";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { chatSession } from '@/service/AIModel';
@@ -22,22 +23,31 @@ function TransportationOptions({ trip }) {
       setLoading(true);
       setError(null);
       
-      const TRANSPORT_PROMPT = `Generate transportation options from ${trip?.userSelection?.source?.label} to ${trip?.userSelection?.location?.label}.
+      const TRANSPORT_PROMPT = `Generate detailed transportation options from ${trip?.userSelection?.source?.label} to ${trip?.userSelection?.location?.label}.
+
+Focus especially on TRAIN and BUS options with these specific details:
+- For trains: Include train numbers, train names, coach classes, station names
+- For buses: Include bus operator names, bus types (sleeper, AC, non-AC), boarding points, drop-off points
+- For all options: Include multiple departure times throughout day if available
+- Include accurate frequency information (daily, weekdays only, etc)
+- Include booking information when relevant
 
 Return ONLY valid JSON with this structure (no explanation text, just the JSON):
 {
   "flights": [
-    {"name": "Airline Name", "departure": "10:00 AM", "arrival": "12:30 PM", "duration": "2h 30m", "price": "$100-150", "info": "Daily flights"}
+    {"name": "Airline Name", "departure": "10:00 AM", "arrival": "12:30 PM", "duration": "2h 30m", "price": "$100-150", "info": "Daily flights, Economy class"}
   ],
   "trains": [
-    {"name": "Train Company", "departure": "9:00 AM", "arrival": "11:30 AM", "duration": "2h 30m", "price": "$50-80", "info": "Comfortable seats"}
+    {"name": "12345 Express", "departure": "9:00 AM", "arrival": "11:30 AM", "duration": "2h 30m", "price": "$50-80", "info": "Daily service, 2AC/3AC/Sleeper classes available, Departs from Central Station"}
   ],
   "buses": [
-    {"name": "Bus Service", "departure": "8:00 AM", "arrival": "11:00 AM", "duration": "3h", "price": "$30-45", "info": "Air conditioned"}
+    {"name": "Deluxe Express", "departure": "8:00 AM", "arrival": "11:00 AM", "duration": "3h", "price": "$30-45", "info": "AC Volvo, Daily, Boarding at Main Bus Terminal"}
   ]
 }
 
-If a transportation mode is not available, include it with an empty array like: "flights": []`;
+If a transportation mode is not available, use an empty array like: "flights": []
+
+Be realistic about routes - if the distance is too short for flights or too far for buses, reflect that in your response.`;
       
       const result = await chatSession.sendMessage(TRANSPORT_PROMPT);
       const responseText = result?.response?.text();
@@ -96,11 +106,25 @@ If a transportation mode is not available, include it with an empty array like: 
     }
   };
 
-  const renderTransportItems = (items, icon) => {
+  const renderTransportItems = (items, icon, transportType) => {
     if (!items || items.length === 0) {
+      let message = "No options available for this mode of transportation.";
+      
+      // Customize message based on transport type and locations
+      if (transportType === 'flights') {
+        message = `No flight options available between ${trip?.userSelection?.source?.label} and ${trip?.userSelection?.location?.label}. The distance may be too short for commercial flights.`;
+      } else if (transportType === 'trains') {
+        message = `No train routes found between ${trip?.userSelection?.source?.label} and ${trip?.userSelection?.location?.label}. Consider other modes of transportation.`;
+      } else if (transportType === 'buses') {
+        message = `No direct bus services found between ${trip?.userSelection?.source?.label} and ${trip?.userSelection?.location?.label}. You may need to check for connecting buses.`;
+      }
+      
       return (
-        <div className="text-center p-4 bg-gray-50 rounded-lg my-3">
-          <p className="text-gray-500">No options available for this mode of transportation.</p>
+        <div className="text-center p-6 bg-gray-50 rounded-lg my-3">
+          <div className="flex justify-center mb-2 text-gray-400">
+            <FaInfoCircle size={24} />
+          </div>
+          <p className="text-gray-500">{message}</p>
         </div>
       );
     }
@@ -120,9 +144,18 @@ If a transportation mode is not available, include it with an empty array like: 
           </div>
         </div>
         <div className="mt-3 flex justify-between items-center text-sm">
-          <div>
-            <p className="font-medium">Departure: <span className="text-gray-600">{item.departure}</span></p>
-            <p className="font-medium">Arrival: <span className="text-gray-600">{item.arrival}</span></p>
+          <div className="flex gap-6">
+            <div>
+              <p className="text-xs text-gray-500">DEPARTURE</p>
+              <p className="font-medium text-gray-800">{item.departure}</p>
+            </div>
+            <div className="flex items-center text-gray-300">
+              <FaExchangeAlt />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">ARRIVAL</p>
+              <p className="font-medium text-gray-800">{item.arrival}</p>
+            </div>
           </div>
           <div className="bg-gray-100 px-3 py-1 rounded-full">
             <p className="font-medium">{item.duration}</p>
@@ -144,19 +177,34 @@ If a transportation mode is not available, include it with an empty array like: 
     <div className="my-8">
       <h2 className="font-bold text-xl mb-4">Transportation Options</h2>
       <div className="bg-gray-50 p-4 rounded-lg mb-4">
-        <p className="font-medium">From: <span className="text-gray-700">{trip?.userSelection?.source?.label}</span></p>
-        <p className="font-medium">To: <span className="text-gray-700">{trip?.userSelection?.location?.label}</span></p>
+        <div className="flex flex-col sm:flex-row justify-between">
+          <div className="mb-2 sm:mb-0">
+            <p className="text-sm text-gray-500">FROM</p>
+            <p className="font-medium text-gray-700">{trip?.userSelection?.source?.label}</p>
+          </div>
+          <div className="hidden sm:flex items-center text-gray-300">
+            <FaExchangeAlt />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">TO</p>
+            <p className="font-medium text-gray-700">{trip?.userSelection?.location?.label}</p>
+          </div>
+        </div>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
           <p className="text-red-700">{error}</p>
+          <Button onClick={getTransportationOptions} variant="outline" size="sm" className="mt-2">
+            Try Again
+          </Button>
         </div>
       )}
 
       {loading ? (
-        <div className="flex justify-center items-center py-10">
-          <AiOutlineLoading3Quarters className="h-10 w-10 animate-spin text-gray-500" />
+        <div className="flex flex-col justify-center items-center py-10">
+          <AiOutlineLoading3Quarters className="h-10 w-10 animate-spin text-gray-500 mb-2" />
+          <p className="text-gray-500">Searching for transportation options...</p>
         </div>
       ) : transportData ? (
         <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
@@ -173,7 +221,7 @@ If a transportation mode is not available, include it with an empty array like: 
                 <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                   <FaPlane /> Flight Options
                 </h3>
-                {renderTransportItems(transportData.flights, <FaPlane className="text-blue-500" />)}
+                {renderTransportItems(transportData.flights, <FaPlane className="text-blue-500" />, 'flights')}
               </div>
             )}
             
@@ -182,7 +230,7 @@ If a transportation mode is not available, include it with an empty array like: 
                 <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                   <FaTrain /> Train Options
                 </h3>
-                {renderTransportItems(transportData.trains, <FaTrain className="text-green-500" />)}
+                {renderTransportItems(transportData.trains, <FaTrain className="text-green-500" />, 'trains')}
               </div>
             )}
             
@@ -191,7 +239,20 @@ If a transportation mode is not available, include it with an empty array like: 
                 <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                   <FaBus /> Bus Options
                 </h3>
-                {renderTransportItems(transportData.buses, <FaBus className="text-orange-500" />)}
+                {renderTransportItems(transportData.buses, <FaBus className="text-orange-500" />, 'buses')}
+              </div>
+            )}
+            
+            {transportData.flights.length === 0 && transportData.trains.length === 0 && transportData.buses.length === 0 && (
+              <div className="text-center p-10 bg-gray-50 rounded-lg my-6">
+                <div className="flex justify-center mb-4 text-gray-400">
+                  <FaInfoCircle size={32} />
+                </div>
+                <h3 className="font-medium text-gray-700 mb-2">No transportation options found</h3>
+                <p className="text-gray-500 mb-4">We couldn't find direct transportation options between these locations.</p>
+                <Button onClick={getTransportationOptions} variant="outline">
+                  Search Again
+                </Button>
               </div>
             )}
           </TabsContent>
@@ -200,21 +261,21 @@ If a transportation mode is not available, include it with an empty array like: 
             <h3 className="font-semibold text-lg my-2 flex items-center gap-2">
               <FaPlane /> Flight Options
             </h3>
-            {renderTransportItems(transportData.flights, <FaPlane className="text-blue-500" />)}
+            {renderTransportItems(transportData.flights, <FaPlane className="text-blue-500" />, 'flights')}
           </TabsContent>
           
           <TabsContent value="trains">
             <h3 className="font-semibold text-lg my-2 flex items-center gap-2">
               <FaTrain /> Train Options
             </h3>
-            {renderTransportItems(transportData.trains, <FaTrain className="text-green-500" />)}
+            {renderTransportItems(transportData.trains, <FaTrain className="text-green-500" />, 'trains')}
           </TabsContent>
           
           <TabsContent value="buses">
             <h3 className="font-semibold text-lg my-2 flex items-center gap-2">
               <FaBus /> Bus Options
             </h3>
-            {renderTransportItems(transportData.buses, <FaBus className="text-orange-500" />)}
+            {renderTransportItems(transportData.buses, <FaBus className="text-orange-500" />, 'buses')}
           </TabsContent>
         </Tabs>
       ) : (

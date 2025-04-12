@@ -285,9 +285,11 @@ function PlaceCardItem({place}) {
         </div>
         
         {/* Visit tag */}
-        <div className="absolute -right-1 -top-1 bg-gradient-to-br from-green-400 to-green-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg transform rotate-0 shadow-md">
-          MUST VISIT
-        </div>
+        {parseFloat(place?.rating) >= 4.5 && (
+  <div className="absolute -right-1 -top-1 bg-gradient-to-br from-green-400 to-green-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg transform rotate-0 shadow-md">
+    MUST VISIT
+  </div>
+)}
       </div>
     </Link>
   )

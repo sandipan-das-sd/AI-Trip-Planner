@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { FaPlane, FaTrain, FaBus, FaInfoCircle, FaExchangeAlt } from "react-icons/fa";
@@ -23,31 +25,39 @@ function TransportationOptions({ trip }) {
       setLoading(true);
       setError(null);
       
-      const TRANSPORT_PROMPT = `Generate detailed transportation options from ${trip?.userSelection?.source?.label} to ${trip?.userSelection?.location?.label}.
+      // Get source and destination
+      const source = trip?.userSelection?.source?.label;
+      const destination = trip?.userSelection?.location?.label;
+      
+      const TRANSPORT_PROMPT = `Generate realistic transportation options from ${source} to ${destination}.
 
-Focus especially on TRAIN and BUS options with these specific details:
+Focus especially on accurate details based on the specific source and destination:
+- For flights: Only include if the route would realistically have flights (e.g., yes for Kolkata to Mumbai, no for Kolkata to Darjeeling)
 - For trains: Include train numbers, train names, coach classes, station names
 - For buses: Include bus operator names, bus types (sleeper, AC, non-AC), boarding points, drop-off points
 - For all options: Include multiple departure times throughout day if available
 - Include accurate frequency information (daily, weekdays only, etc)
-- Include booking information when relevant
+- All prices should be in Indian Rupees (₹) format, not dollars
+- Be accurate and realistic about route possibilities
 
 Return ONLY valid JSON with this structure (no explanation text, just the JSON):
 {
   "flights": [
-    {"name": "Airline Name", "departure": "10:00 AM", "arrival": "12:30 PM", "duration": "2h 30m", "price": "$100-150", "info": "Daily flights, Economy class"}
+    {"name": "Airline Name", "departure": "10:00 AM", "arrival": "12:30 PM", "duration": "2h 30m", "price": "₹5,000-7,500", "info": "Daily flights, Economy class"}
   ],
   "trains": [
-    {"name": "12345 Express", "departure": "9:00 AM", "arrival": "11:30 AM", "duration": "2h 30m", "price": "$50-80", "info": "Daily service, 2AC/3AC/Sleeper classes available, Departs from Central Station"}
+    {"name": "12345 Express", "departure": "9:00 AM", "arrival": "11:30 AM", "duration": "2h 30m", "price": "₹1,500-2,500", "info": "Daily service, 2AC/3AC/Sleeper classes available, Departs from Central Station"}
   ],
   "buses": [
-    {"name": "Deluxe Express", "departure": "8:00 AM", "arrival": "11:00 AM", "duration": "3h", "price": "$30-45", "info": "AC Volvo, Daily, Boarding at Main Bus Terminal"}
+    {"name": "Deluxe Express", "departure": "8:00 AM", "arrival": "11:00 AM", "duration": "3h", "price": "₹800-1,200", "info": "AC Volvo, Daily, Boarding at Main Bus Terminal"}
   ]
 }
 
 If a transportation mode is not available, use an empty array like: "flights": []
 
-Be realistic about routes - if the distance is too short for flights or too far for buses, reflect that in your response.`;
+Be realistic about routes - if the distance is too short for flights or too far for buses, reflect that in your response.
+Also, know that flights DO exist between major cities like Kolkata and Mumbai, Delhi and Bangalore, etc.
+For routes like Kolkata to Darjeeling, suggest flights to the nearest airport (like Bagdogra) if applicable.`;
       
       const result = await chatSession.sendMessage(TRANSPORT_PROMPT);
       const responseText = result?.response?.text();
@@ -109,14 +119,35 @@ Be realistic about routes - if the distance is too short for flights or too far 
   const renderTransportItems = (items, icon, transportType) => {
     if (!items || items.length === 0) {
       let message = "No options available for this mode of transportation.";
+      const source = trip?.userSelection?.source?.label;
+      const destination = trip?.userSelection?.location?.label;
       
       // Customize message based on transport type and locations
       if (transportType === 'flights') {
-        message = `No flight options available between ${trip?.userSelection?.source?.label} and ${trip?.userSelection?.location?.label}. The distance may be too short for commercial flights.`;
+        // Special case for common routes that should have flights
+        const majorCities = ['Mumbai', 'Delhi', 'Kolkata', 'Chennai', 'Bangalore', 'Hyderabad', 'Pune'];
+        if (majorCities.includes(source) && majorCities.includes(destination)) {
+          message = `Error loading flight options between ${source} and ${destination}. Please try again.`;
+        } else {
+          // Check for nearby airports for popular tourist destinations
+          const touristDestinations = {
+            'Darjeeling': 'Bagdogra',
+            'Manali': 'Kullu',
+            'Ooty': 'Coimbatore',
+            'Munnar': 'Cochin',
+            'Shimla': 'Chandigarh'
+          };
+          
+          if (touristDestinations[destination]) {
+            message = `No direct flights to ${destination}. Consider flying to ${touristDestinations[destination]} Airport and continuing by road.`;
+          } else {
+            message = `No commercial flights operate between ${source} and ${destination}. Please consider alternative transportation.`;
+          }
+        }
       } else if (transportType === 'trains') {
-        message = `No train routes found between ${trip?.userSelection?.source?.label} and ${trip?.userSelection?.location?.label}. Consider other modes of transportation.`;
+        message = `No direct train routes found between ${source} and ${destination}. Consider checking for connecting trains or other modes of transportation.`;
       } else if (transportType === 'buses') {
-        message = `No direct bus services found between ${trip?.userSelection?.source?.label} and ${trip?.userSelection?.location?.label}. You may need to check for connecting buses.`;
+        message = `No direct bus services found between ${source} and ${destination}. Local or connecting bus services may be available.`;
       }
       
       return (
